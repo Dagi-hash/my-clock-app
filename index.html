@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="midnight" data-mode="digital">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>My Clock App</title>
+<meta name="description" content="My Clock App - clock, alarms, timer and stopwatch.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="My Clock App">
+<meta id="meta-theme" name="theme-color" content="#041B4A">
+<meta name="color-scheme" content="dark light">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script>
+/* ===== themes (built from the palette images) - runs before the first paint so there is never a flash ===== */
+(function () {
+  function h2r(h) { h = h.replace('#', ''); var n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+  function mix(a, b, t) { var A = h2r(a), B = h2r(b); return '#' + A.map(function (v, i) { return Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0'); }).join(''); }
+  function rgba(h, a) { var c = h2r(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+
+  var THEMES = [
+    { id: 'midnight', name: 'Midnight Navy', dark: true,  bg: '#041B4A', bg2: '#020F2B', text: '#F8F0E1', accent: '#F8F0E1', on: '#041B4A', sec: '#F8F0E1', sw: ['#041B4A', '#F8F0E1'] },
+    { id: 'pearl',    name: 'Pearl Cream',   dark: false, bg: '#F8F0E1', bg2: '#E9DCC3', text: '#041B4A', accent: '#041B4A', on: '#F8F0E1', sec: '#1F4BB5', sw: ['#F8F0E1', '#041B4A'] },
+    { id: 'atlas',    name: 'Atlas Red',     dark: true,  bg: '#82193A', bg2: '#560F27', text: '#FEE3C5', accent: '#FEE3C5', on: '#82193A', sec: '#FEE3C5', sw: ['#82193A', '#FEE3C5'] },
+    { id: 'bisque',   name: 'Bisque',        dark: false, bg: '#FEE3C5', bg2: '#F5C998', text: '#82193A', accent: '#82193A', on: '#FEE3C5', sec: '#82193A', sw: ['#FEE3C5', '#82193A'] },
+    { id: 'ocean',    name: 'Ocean Light',   dark: false, bg: '#FFFBFC', bg2: '#D9E2E9', text: '#0C1D32', accent: '#007AAD', on: '#FFFFFF', sec: '#007AAD', sw: ['#007AAD', '#D9E2E9', '#FFFBFC', '#0C1D32'] },
+    { id: 'deepocean',name: 'Deep Ocean',    dark: true,  bg: '#0C1D32', bg2: '#06101D', text: '#D9E2E9', accent: '#007AAD', on: '#FFFFFF', sec: '#6FD0F5', sw: ['#0C1D32', '#007AAD', '#D9E2E9'] },
+    { id: 'yale',     name: 'Yale & Gold',   dark: true,  bg: '#0F3B59', bg2: '#082535', text: '#DBD4CC', accent: '#DBA12C', on: '#3E251E', sec: '#DBA12C', sw: ['#0F3B59', '#7D929E', '#DBD4CC', '#DBA12C', '#3E251E'] },
+    { id: 'holst',    name: 'Holst',         dark: true,  bg: '#222C38', bg2: '#141A23', top: '#3C4B5C', grad: 'linear-gradient(180deg,#3C4B5C 0%,#222C38 50%,#141A23 100%)', text: '#E7EDF2', accent: '#B7C6D3', on: '#1B2430', sec: '#8199AE', sw: ['#4E6A83', '#8199AE', '#B7C6D3', '#E7EDF2'] },
+    { id: 'aegean',   name: 'Aegean',        dark: false, bg: '#EFE8DE', bg2: '#E0D5C4', text: '#14284B', accent: '#1664B0', on: '#FFFFFF', sec: '#D21624', sw: ['#1664B0', '#EFE8DE', '#D21624'] }
+  ];
+  var BY = {};
+  THEMES.forEach(function (t) {
+    var d = t.dark, bg = t.bg, tx = t.text, ac = t.accent;
+    var lift = d ? mix(bg, '#ffffff', .08) : mix(bg, '#ffffff', .55);
+    var lift2 = d ? mix(bg, '#ffffff', .14) : mix(bg, '#ffffff', .78);
+    t.top = t.top || mix(bg, '#ffffff', d ? .05 : .35);
+    t.v = {
+      'color-scheme': d ? 'dark' : 'light',
+      '--bg': bg,
+      '--bg-grad': t.grad || ('linear-gradient(165deg,' + t.top + ' 0%,' + bg + ' 50%,' + t.bg2 + ' 100%)'),
+      '--text': tx, '--text-2': mix(tx, bg, .1), '--muted': mix(tx, bg, .42), '--muted-2': mix(tx, bg, .55), '--muted-3': mix(tx, bg, .7),
+      '--panel': lift, '--panel-2': lift2, '--panel-soft': rgba(lift, .7), '--panel-off': rgba(lift, .35), '--card': lift,
+      '--panel-nav': d ? rgba(mix(bg, '#ffffff', .09), .97) : rgba(mix(bg, '#ffffff', .7), .95),
+      '--border': mix(bg, tx, d ? .24 : .2), '--border-soft': mix(bg, tx, d ? .15 : .12), '--hover': lift2,
+      '--btn-bg': ac, '--btn-text': t.on, '--btn-hover': mix(ac, d ? '#ffffff' : '#000000', .12), '--btn-border': 'transparent', '--btn-shadow': 'none',
+      '--accent': ac, '--sec-hand': t.sec, '--spark': t.sec, '--glass': 'none',
+      '--shadow': d ? '0 18px 40px -14px rgba(0,0,0,.65)' : '0 16px 34px -14px ' + rgba(tx, .4),
+      '--scrim': d ? 'rgba(0,0,0,.6)' : rgba(tx, .35), '--modal-bg': lift, '--input-bg': d ? mix(bg, '#000000', .25) : mix(bg, '#ffffff', .7),
+      '--banner-bg': lift, '--banner-border': mix(bg, tx, .35), '--glow': rgba(ac, .3),
+      '--nav-active': ac, '--nav-active-text': t.on, '--nav-active-shadow': 'none', '--nav-pill': ac, '--nav-pill-text': t.on,
+      '--toggle-on': ac, '--toggle-off': mix(bg, tx, .22), '--knob-on': t.on, '--knob-off': mix(tx, bg, .45),
+      '--scroll': mix(bg, tx, .3), '--face': 'transparent', '--ring': mix(bg, tx, .25),
+      '--dot': mix(bg, tx, .3), '--dot5': mix(bg, tx, .7), '--mnum': mix(tx, bg, .45)
+    };
+    BY[t.id] = t;
+  });
+  var css = '';
+  THEMES.forEach(function (t) {
+    css += '[data-theme="' + t.id + '"]{' + Object.keys(t.v).map(function (k) { return k + ':' + t.v[k]; }).join(';') + '}';
+  });
+  var st = document.createElement('style'); st.id = 'theme-css'; st.textContent = css; document.head.appendChild(st);
+  window.THEMES = THEMES; window.THEME_BY_ID = BY;
+
+  var s = {}, r = document.documentElement;
+  try { s = JSON.parse(localStorage.getItem('flipclock.v1') || '{}'); } catch (e) {}
+  r.setAttribute('data-theme', BY[s.themeId] ? s.themeId : 'midnight');
+  r.setAttribute('data-mode', ['digital', 'analog'].indexOf(s.clockMode) > -1 ? s.clockMode : 'digital');
+  var m = document.getElementById('meta-theme'); if (m) m.setAttribute('content', BY[r.getAttribute('data-theme')].bg);
+})();
+</script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Top Bar -->
+    <header class="topbar">
+        <div class="brand">
+            <div class="dot"></div>
+            <span id="header-title" class="title">Clock</span>
+        </div>
+        <div class="top-actions">
+            <!-- Info -->
+            <button id="info-btn" onclick="openInfo()" class="icon-btn" title="About" aria-label="About this app">
+                <svg style="opacity:1;transform:none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path stroke-linecap="round" d="M12 11v5"></path><circle cx="12" cy="7.8" r=".6" fill="currentColor"></circle></svg>
+            </button>
+            <!-- Dark / Light toggle -->
+            <button id="theme-toggle-btn" onclick="openThemePicker()" class="icon-btn" title="Choose theme" aria-label="Choose theme">
+                <svg fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 3a9 9 0 100 18c1.1 0 1.8-.8 1.8-1.8 0-.5-.2-.9-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1 .8-1.8 1.8-1.8H17a4 4 0 004-4c0-4.4-4-8-9-8z"></path><circle cx="7.5" cy="11.5" r="1.1" fill="currentColor"></circle><circle cx="10.5" cy="7.5" r="1.1" fill="currentColor"></circle><circle cx="15" cy="7.5" r="1.1" fill="currentColor"></circle></svg>
+            </button>
+            <!-- Sound Test / Mute Indicator -->
+            <button id="sound-toggle-btn" onclick="toggleMute()" class="chip-btn" title="Toggle Audio Alerts">
+                <svg id="sound-on-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                </svg>
+                <svg id="sound-off-icon" hidden fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>
+                </svg>
+                <span id="sound-label" class="sound-label">Sound On</span>
+            </button>
+            <!-- 12H / 24H Switch -->
+            <button id="format-toggle-btn" onclick="toggleTimeFormat()" class="chip-btn mono">24H</button>
+            <!-- Digital <-> Analog -->
+            <button id="mode-btn" onpointerdown="toggleClockMode()" class="icon-btn mode-btn" title="Switch clock style" aria-label="Switch between digital and analog clock">
+                <svg class="i-an" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+                <svg class="i-dg" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2.5"></rect><path d="M7 10v4M7 10h2M9 10v2H7M12 10v4M15 10h2v2h-2v2h2"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Swipe-away notification banner -->
+    <div id="alert-banner" class="banner" role="alert">
+        <div class="banner-main">
+            <div class="banner-icon">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                </svg>
+            </div>
+            <div style="min-width:0">
+                <p id="alert-title" class="banner-title">Alarm Ringing</p>
+                <p id="alert-subtitle" class="banner-sub">Time is up</p>
+            </div>
+        </div>
+        <button onclick="dismissAlert()" class="btn btn-primary">Dismiss</button>
+    </div>
+
+    <!-- Main View Container -->
+    <main id="main" class="main">
+
+        <!-- ================= 1. CLOCK VIEW ================= -->
+        <section id="view-clock" class="view active">
+            <div class="face-wrap">
+                <!-- DIGITAL -->
+                <div class="mode-digital">
+                    <div class="dig"><span id="dg-h">00</span><span class="sep">:</span><span id="dg-m">00</span><span class="dsec"><span class="sep">:</span><span id="dg-s">00</span></span></div>
+                    <span id="dg-ampm" class="ampm-badge">AM</span>
+                </div>
+
+                <!-- ANALOG -->
+                <div class="mode-analog"><div id="an-dial" class="analog"></div></div>
+            </div>
+
+            <p id="clock-date" class="date">THURSDAY, OCT 15</p>
+
+            <!-- Next Alarm Pill -->
+            <div id="next-alarm-pill" class="pill">
+                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <circle cx="12" cy="13" r="8"></circle>
+                    <path stroke-linecap="round" d="M12 9v4l2.5 2.5M5 3L2 6m20 0l-3-3"></path>
+                </svg>
+                <span id="next-alarm-text">No active alarms</span>
+            </div>
+
+            <!-- Install App (front screen) -->
+            <button id="front-install-btn" onclick="installPWA()" hidden class="btn btn-primary install-btn">
+                <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                Install App
+            </button>
+        </section>
+
+        <!-- ================= 2. ALARM VIEW ================= -->
+        <section id="view-alarm" class="view">
+            <div class="alarm-head">
+                <div>
+                    <h2 class="big-title">Alarms</h2>
+                    <p id="alarm-sub" class="sub">No active alarms</p>
+                </div>
+                <button onclick="openAlarmModal()" class="round-btn" aria-label="New alarm">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+                </button>
+            </div>
+            <div id="alarm-list" class="alarm-list"></div>
+        </section>
+
+        <!-- ================= 3. TIMER VIEW ================= -->
+        <section id="view-timer" class="view">
+            <div class="timer-center">
+                <!-- digital -->
+                <div class="t-digital">
+                    <div class="dig"><span id="td-h">00</span><span class="sep">:</span><span id="td-m">05</span><span class="sep">:</span><span id="td-s">00</span></div>
+                    <div class="dig-labels"><span>HRS</span><span>MIN</span><span>SEC</span></div>
+                </div>
+                <!-- analog -->
+                <div class="t-analog">
+                    <div id="tm-dial" class="analog"></div>
+                    <div id="tm-readout" class="readout">00:05</div>
+                </div>
+
+                <span id="timer-status-badge" class="status">Ready</span>
+
+                <div id="timer-setup-controls">
+                    <div class="chips">
+                        <button class="chip" onclick="setTimerPreset(60)">1 min</button>
+                        <button class="chip" onclick="setTimerPreset(180)">3 min</button>
+                        <button class="chip" onclick="setTimerPreset(300)">5 min</button>
+                        <button class="chip" onclick="setTimerPreset(600)">10 min</button>
+                        <button class="chip" onclick="setTimerPreset(900)">15 min</button>
+                        <button class="chip" onclick="setTimerPreset(1800)">30 min</button>
+                    </div>
+                    <div class="stepper-grid">
+                        <div class="stepper"><span class="step-label">Hours</span><div class="step-row"><button class="step-btn" onclick="adjustTimer(3600, -1)" aria-label="Minus one hour">&minus;</button><button class="step-btn" onclick="adjustTimer(3600, 1)" aria-label="Plus one hour">+</button></div></div>
+                        <div class="stepper"><span class="step-label">Min</span><div class="step-row"><button class="step-btn" onclick="adjustTimer(60, -1)" aria-label="Minus one minute">&minus;</button><button class="step-btn" onclick="adjustTimer(60, 1)" aria-label="Plus one minute">+</button></div></div>
+                        <div class="stepper"><span class="step-label">Sec</span><div class="step-row"><button class="step-btn" onclick="adjustTimer(1, -15)" aria-label="Minus fifteen seconds">&minus;</button><button class="step-btn" onclick="adjustTimer(1, 15)" aria-label="Plus fifteen seconds">+</button></div></div>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button id="timer-reset-btn" onclick="resetTimer()" class="btn btn-soft btn-lg">Reset</button>
+                    <button id="timer-toggle-btn" onclick="toggleTimer()" class="btn btn-primary btn-lg">Start</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= 4. STOPWATCH VIEW ================= -->
+        <section id="view-stopwatch" class="view">
+            <div class="sw-display">
+                <div class="t-analog">
+                    <div id="sw-dial" class="analog"></div>
+                    <div id="sw-readout" class="readout">00:00.00</div>
+                </div>
+                <div class="t-digital">
+                    <div id="sw-digital" class="dig"><span id="sd-m">00</span><span class="sep">:</span><span id="sd-s">00</span><span class="dsec"><span class="sep">.</span><span id="sd-c">00</span></span></div>
+                </div>
+            </div>
+
+            <div class="actions" style="margin:.9rem 0">
+                <button id="sw-secondary-btn" onclick="lapOrResetStopwatch()" disabled class="btn btn-soft btn-lg">Lap</button>
+                <button id="sw-primary-btn" onclick="toggleStopwatch()" class="btn btn-primary btn-lg">Start</button>
+            </div>
+
+            <div class="lap-panel">
+                <div id="lap-head" class="lap-head" hidden><span>Lap #</span><span>Split</span><span>Total</span></div>
+                <div id="lap-list" class="lap-list"><div class="lap-empty">No laps recorded</div></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Add Alarm Modal -->
+    <div id="alarm-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3>Set New Alarm</h3>
+                <button onclick="closeAlarmModal()" class="x-btn" aria-label="Close">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <div class="time-pick">
+                <div class="time-col">
+                    <button onclick="stepModalTime('h', 1)" class="arrow-btn">&#9650;</button>
+                    <div id="modal-hour" class="time-box">07</div>
+                    <button onclick="stepModalTime('h', -1)" class="arrow-btn">&#9660;</button>
+                </div>
+                <span class="time-colon">:</span>
+                <div class="time-col">
+                    <button onclick="stepModalTime('m', 1)" class="arrow-btn">&#9650;</button>
+                    <div id="modal-minute" class="time-box">00</div>
+                    <button onclick="stepModalTime('m', -1)" class="arrow-btn">&#9660;</button>
+                </div>
+                <div id="modal-ampm" class="time-col ampm-col" hidden>
+                    <button id="ap-am" onclick="setModalPeriod('AM')" class="ap-btn">AM</button>
+                    <button id="ap-pm" onclick="setModalPeriod('PM')" class="ap-btn">PM</button>
+                </div>
+            </div>
+
+            <div>
+                <label class="field-label" for="modal-label">Label</label>
+                <input id="modal-label" type="text" maxlength="24" placeholder="Morning Workout" class="input">
+            </div>
+
+            <div class="modal-actions">
+                <button onclick="closeAlarmModal()" class="btn btn-outline">Cancel</button>
+                <button onclick="saveNewAlarm()" class="btn btn-primary">Save Alarm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Theme Picker -->
+    <div id="theme-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3>Choose Theme</h3>
+                <button onclick="closeThemePicker()" class="x-btn" aria-label="Close">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div id="theme-grid" class="theme-grid"></div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="info-modal" class="modal">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3>About</h3>
+                <button onclick="closeInfo()" class="x-btn" aria-label="Close">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="info-body">
+                <div class="info-logo">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2"></path></svg>
+                </div>
+                <p class="info-name"><small>My Clock App</small>Developed by Dagim Bireda (@ Lilo Design)</p>
+                <div class="info-rows">
+                    <a class="info-row" href="mailto:dagim22bireda@gmail.com">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path stroke-linecap="round" stroke-linejoin="round" d="M3 7l9 6 9-6"></path></svg>
+                        <div><b>Email</b><span>dagim22bireda@gmail.com</span></div>
+                    </a>
+                    <a class="info-row" href="tel:+251929040636">
+                        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.95.68l1.5 4.5a1 1 0 01-.5 1.2l-2.26 1.13a11 11 0 005.52 5.52l1.13-2.26a1 1 0 011.2-.5l4.5 1.5a1 1 0 01.69.95V19a2 2 0 01-2 2h-1C9.72 21 3 14.28 3 6V5z"></path></svg>
+                        <div><b>Phone No</b><span>+251 929040636</span></div>
+                    </a>
+                </div>
+                <div id="bg-card" class="bg-card" hidden></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast" role="status"></div>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="nav">
+        <div id="nav-group" class="nav-group">
+            <div id="nav-bar" class="nav-bar">
+                <button onpointerdown="switchTab('clock')" onclick="switchTab('clock')" data-tab="clock" class="nav-btn active" aria-label="Clock">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+                    <span>Clock</span>
+                </button>
+                <button onpointerdown="switchTab('alarm')" onclick="switchTab('alarm')" data-tab="alarm" class="nav-btn" aria-label="Alarms">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 003.4 0"></path></svg>
+                    <span>Alarms</span>
+                </button>
+                <button onpointerdown="switchTab('timer')" onclick="switchTab('timer')" data-tab="timer" class="nav-btn" aria-label="Timer">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 2h12M6 22h12M7 2v4a5 5 0 002.2 4.1L12 12l-2.8 1.9A5 5 0 007 18v4M17 2v4a5 5 0 01-2.2 4.1L12 12l2.8 1.9A5 5 0 0117 18v4"></path></svg>
+                    <span>Timer</span>
+                </button>
+                <button onpointerdown="switchTab('stopwatch')" onclick="switchTab('stopwatch')" data-tab="stopwatch" class="nav-btn" aria-label="Stopwatch">
+                    <svg fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 2h6M12 2v3"></path><circle cx="12" cy="14" r="8"></circle><path d="M12 14l3-3"></path></svg>
+                    <span>Stopwatch</span>
+                </button>
+            </div>
+            <!-- running timer / stopwatch bar (springs up above the nav bar) -->
+            <div id="dock" class="dock">
+                <button id="dock-timer" class="dock-item" onpointerdown="switchTab('timer')" onclick="switchTab('timer')" aria-label="Running timer">
+                    <i></i>
+                    <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 2h12M6 22h12M7 2v4a5 5 0 002.2 4.1L12 12l-2.8 1.9A5 5 0 007 18v4M17 2v4a5 5 0 01-2.2 4.1L12 12l2.8 1.9A5 5 0 0117 18v4"></path></svg>
+                    <span id="dock-timer-text">00:00</span>
+                </button>
+                <button id="dock-sw" class="dock-item" onpointerdown="switchTab('stopwatch')" onclick="switchTab('stopwatch')" aria-label="Running stopwatch">
+                    <i></i>
+                    <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 2h6M12 2v3"></path><circle cx="12" cy="14" r="8"></circle><path d="M12 14l3-3"></path></svg>
+                    <span id="dock-sw-text">00:00.0</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <script src="app.js"></script>
+</body>
+</html>
