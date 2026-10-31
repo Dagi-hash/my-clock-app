@@ -1,0 +1,13 @@
+{
+  "appId": "com.flipclock.app",
+  "appName": "Flip Clock",
+  "webDir": "www",
+  "backgroundColor": "#FEC9AE",
+  "android": { "backgroundColor": "#FEC9AE" },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_clock",
+      "iconColor": "#FDA481"
+    }
+  }
+}

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-mode="flip" data-accent="classic">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Flip Clock</title>
+<meta name="description" content="Flip, digital and analog clock with alarms, timer and stopwatch.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Flip Clock">
+<meta name="theme-color" content="#FFF0E6">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<!-- New installs start in LIGHT mode. Dark is used only if the user picked it. Applied before first paint (no flash). -->
+<script>
+try {
+  var s = JSON.parse(localStorage.getItem('flipclock.v1')) || {}, h = document.documentElement;
+  if (s.themeChosen && s.theme === 'dark') { h.dataset.theme = 'dark'; document.querySelector('meta[name=theme-color]').content = '#000000'; }
+  if (s.clockMode === 'digital' || s.clockMode === 'analog') h.dataset.mode = s.clockMode;
+  var st = s.settings || {};
+  if (st.accent && /^[a-z]+$/.test(st.accent)) h.dataset.accent = st.accent;
+  if (st.lang === 'am') h.lang = 'am';
+} catch (e) {}
+</script>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- shared SVG effects for the floating analog dial (shadows follow the hands, glow follows the second hand) -->
+    <svg class="defs" aria-hidden="true" focusable="false"><defs>
+        <filter id="shDial" filterUnits="userSpaceOnUse" x="0" y="0" width="240" height="240"><feDropShadow dx="1.2" dy="3" stdDeviation="1.6" flood-opacity=".38" style="flood-color:var(--dial-shadow)"/></filter>
+        <filter id="shHM" filterUnits="userSpaceOnUse" x="0" y="0" width="240" height="240"><feDropShadow dx="3" dy="8" stdDeviation="3.4" flood-opacity=".5" style="flood-color:var(--dial-shadow)"/></filter>
+        <filter id="shSec" filterUnits="userSpaceOnUse" x="0" y="0" width="240" height="240"><feDropShadow dx="4" dy="12" stdDeviation="4.6" flood-opacity=".42" style="flood-color:var(--dial-shadow)"/></filter>
+        <radialGradient id="halo">
+            <stop offset="0" style="stop-color:var(--dial-glow);stop-opacity:.95"/>
+            <stop offset=".45" style="stop-color:var(--dial-glow);stop-opacity:.3"/>
+            <stop offset="1" style="stop-color:var(--dial-glow);stop-opacity:0"/>
+        </radialGradient>
+    </defs></svg>
+
+    <!-- ================= TOP BAR ================= -->
+    <header id="top">
+        <div class="brand">
+            <div class="dot"></div>
+            <span id="header-title" data-i18n="t_clock">Clock</span>
+        </div>
+        <div class="top-actions">
+            <button id="settings-btn" class="chip-btn icon" onclick="openSettings()" data-i18n-aria="settings" aria-label="Settings">
+                <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            </button>
+            <!-- Dark / light mode: the colour change spreads out as a circle from this button -->
+            <button id="theme-btn" class="tg" onclick="toggleTheme()" aria-label="Toggle dark mode">
+                <span class="tg-knob"></span>
+                <span class="tg-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg></span>
+                <span class="tg-ic"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 14.6A8.6 8.6 0 019.4 3.5a8.6 8.6 0 1011.1 11.1z"/></svg></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- ================= NOTIFICATION POP-UP (slide it left or right to remove it) ================= -->
+    <div id="alert-banner" class="banner" role="alert">
+        <div class="banner-l">
+            <div class="banner-ic">
+                <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            </div>
+            <div style="min-width:0">
+                <p id="alert-title">Alarm Ringing</p>
+                <p id="alert-subtitle">Time is up</p>
+            </div>
+        </div>
+        <div id="alert-actions" class="banner-actions"></div>
+    </div>
+
+    <!-- ================= PAGES ================= -->
+    <main id="stage">
+
+        <!-- 1. CLOCK -->
+        <section id="view-clock" class="panel" data-pos="mid"><div class="scroll"><div class="sc-in">
+            <div class="date-block"><p id="clock-date">THURSDAY, OCT 15</p></div>
+
+            <div class="clock-stack">
+                <!-- FLIP: two big cards + small seconds card (AM/PM sits inside the hour card) -->
+                <div id="clock-flip" class="clock-mode on">
+                    <div class="flip-board">
+                        <div class="fcard" data-flip-id="clock-h"></div>
+                        <div class="fcard" data-flip-id="clock-m"></div>
+                        <div class="fcard fsec" data-flip-id="clock-s"></div>
+                    </div>
+                </div>
+                <!-- DIGITAL -->
+                <div id="clock-digital" class="clock-mode dg">
+                    <div class="dg-time"><span id="dg-hm" class="nm"></span><span id="dg-s" class="nm dg-sec"></span></div>
+                    <span id="dg-ampm" class="pill">AM</span>
+                </div>
+                <!-- ANALOG -->
+                <div id="clock-analog" class="clock-mode an">
+                    <svg id="dial-clock" class="dial" viewBox="0 0 240 240" role="img" aria-label="Analog clock"></svg>
+                    <span id="an-ampm" class="pill">AM</span>
+                </div>
+            </div>
+
+            <div class="dots" data-dots><i></i><i></i><i></i></div>
+
+            <div class="next-pill">
+                <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"></circle><path stroke-linecap="round" d="M12 9v4l2.5 2.5M5 3L2 6m20 0l-3-3"></path></svg>
+                <span id="next-alarm-text" data-i18n="next_none">No active alarms</span>
+            </div>
+            <button class="btn ghost" onclick="openBedside()">
+                <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M20.5 14.6A8.6 8.6 0 019.4 3.5a8.6 8.6 0 1011.1 11.1z"/></svg>
+                <span data-i18n="bedside">Bedside mode</span>
+            </button>
+
+            <button id="front-install-btn" class="btn" onclick="installPWA()">
+                <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <span data-i18n="install">Install App</span>
+            </button>
+        </div></div></section>
+
+        <!-- 2. ALARMS -->
+        <section id="view-alarm" class="panel" data-pos="right"><div class="scroll"><div class="sc-in top">
+            <div class="card" style="margin-top:.4rem">
+                <div>
+                    <span class="eyebrow" data-i18n="t_alarm">Alarms</span>
+                    <h2 class="h2" data-i18n="wake">Wake &amp; Reminders</h2>
+                </div>
+                <button class="btn sm" onclick="openAlarmEditor(null)">
+                    <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    <span data-i18n="new_alarm">New Alarm</span>
+                </button>
+            </div>
+            <button id="rel-card" class="rel hidden" onclick="openReliability()">
+                <span class="ic"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></span>
+                <span style="flex:1;min-width:0"><b id="rel-title"></b><small id="rel-sub"></small></span>
+                <span style="color:var(--tx3);font-size:1.3rem">&#8250;</span>
+            </button>
+            <div id="alarm-list"></div>
+        </div></div></section>
+
+        <!-- 3. TIMER -->
+        <section id="view-timer" class="panel" data-pos="right"><div class="scroll"><div class="sc-in">
+            <div class="tm-head">
+                <button id="timer-name" class="name-btn" onclick="openTimerEditor()"><span id="timer-name-text">Timer</span>
+                    <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/></svg></button>
+                <span id="timer-status-badge" class="badge" data-i18n="ready">Ready</span>
+            </div>
+            <div id="timer-round" class="round-note"></div>
+
+            <div class="tm-display">
+                <!-- FLIP -->
+                <div class="tm-mode" data-show="flip">
+                    <div class="flip-board">
+                        <div class="fcard" data-flip-id="timer-h" data-tag-i18n="hrs"></div>
+                        <div class="fcard" data-flip-id="timer-m" data-tag-i18n="min"></div>
+                        <div class="fcard fsec" data-flip-id="timer-s" data-tag-i18n="sec"></div>
+                    </div>
+                </div>
+                <!-- DIGITAL (sized from the screen width, can never overflow) -->
+                <div class="tm-mode" data-show="digital">
+                    <div class="tm-text">
+                        <span id="tm-h" class="nm"></span><span class="c nm"></span><span id="tm-m" class="nm"></span><span class="c nm"></span><span id="tm-s" class="nm"></span>
+                        <span class="u" style="grid-column:1" data-i18n="hrs">HRS</span><span class="u" style="grid-column:3" data-i18n="min">MIN</span><span class="u" style="grid-column:5" data-i18n="sec">SEC</span>
+                    </div>
+                </div>
+                <!-- ANALOG -->
+                <div class="tm-mode" data-show="analog">
+                    <div class="dial-wrap">
+                        <svg id="dial-timer" class="dial" data-hands="ms" viewBox="0 0 240 240" role="img" aria-label="Timer dial"></svg>
+                        <div id="timer-read" class="dial-read nm"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dots" data-dots><i></i><i></i><i></i></div>
+            <div class="btn-row">
+                <button id="timer-reset-btn" class="btn ghost" onclick="resetTimer()" data-i18n="reset">Reset</button>
+                <button id="timer-toggle-btn" class="btn" onclick="toggleTimer()" data-i18n="start">Start</button>
+            </div>
+            <div id="timer-chips" class="tchips"></div>
+
+            <div id="timer-setup-controls">
+                <div class="presets" id="timer-presets"></div>
+                <div class="steppers">
+                    <div class="stepper"><button onclick="adjustTimer(3600, -1)">-</button><span data-i18n="hrs">HRS</span><button onclick="adjustTimer(3600, 1)">+</button></div>
+                    <div class="stepper"><button onclick="adjustTimer(60, -1)">-</button><span data-i18n="min">MIN</span><button onclick="adjustTimer(60, 1)">+</button></div>
+                    <div class="stepper"><button onclick="adjustTimer(1, -15)">-</button><span data-i18n="sec">SEC</span><button onclick="adjustTimer(1, 15)">+</button></div>
+                </div>
+            </div>
+
+        </div></div></section>
+
+        <!-- 4. STOPWATCH -->
+        <section id="view-stopwatch" class="panel" data-pos="right"><div class="scroll"><div class="sc-in top">
+            <div class="sw-display" style="margin-top:.4rem">
+                <!-- FLIP -->
+                <div class="sw-mode" data-show="flip">
+                    <div class="flip-board">
+                        <div class="fcard" data-flip-id="sw-m" data-tag-i18n="min"></div>
+                        <div class="fcard" data-flip-id="sw-s" data-tag-i18n="sec"></div>
+                        <div class="fcard fsec" data-flip-id="sw-c"></div>
+                    </div>
+                </div>
+                <!-- DIGITAL -->
+                <div class="sw-mode" data-show="digital">
+                    <div class="sw-text"><span id="sw-ms" class="nm"></span><span id="sw-cs" class="nm sm"></span></div>
+                </div>
+                <!-- ANALOG -->
+                <div class="sw-mode" data-show="analog">
+                    <div class="dial-wrap">
+                        <svg id="dial-sw" class="dial sweep" data-hands="ms" viewBox="0 0 240 240" role="img" aria-label="Stopwatch dial"></svg>
+                        <div id="sw-read" class="dial-read nm"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dots" data-dots><i></i><i></i><i></i></div>
+            <div class="btn-row">
+                <button id="sw-secondary-btn" class="btn ghost" onclick="lapOrResetStopwatch()" disabled data-i18n="lap">Lap</button>
+                <button id="sw-primary-btn" class="btn" onclick="toggleStopwatch()" data-i18n="start">Start</button>
+            </div>
+
+            <div class="laps">
+                <div class="laps-head"><span data-i18n="lap_no">Lap #</span><span data-i18n="split">Split</span><span data-i18n="total">Total</span></div>
+                <div id="lap-list"><div class="laps-empty" data-i18n="no_laps">No laps recorded</div></div>
+            </div>
+        </div></div></section>
+
+    </main>
+
+    <!-- ================= COMPACT DOCK: nav bar + running timer / stopwatch merged into it ================= -->
+    <div id="dockwrap">
+        <div id="dock">
+            <nav id="nav">
+                <button onclick="switchTab('clock')" data-tab="clock" class="nav-btn on" aria-label="Clock">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    <span class="lbl" data-i18n="n_clock">Clock</span>
+                </button>
+                <button onclick="switchTab('alarm')" data-tab="alarm" class="nav-btn" aria-label="Alarm">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0112 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 003.4 0"/></svg>
+                    <span class="lbl" data-i18n="n_alarm">Alarm</span>
+                </button>
+                <button onclick="switchTab('timer')" data-tab="timer" class="nav-btn" aria-label="Timer">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 00-.59-1.41L12 12l-4.41 4.42A2 2 0 007 17.83V22M7 2v4.17a2 2 0 00.59 1.41L12 12l4.41-4.41A2 2 0 0017 6.17V2"/></svg>
+                    <span class="lbl" data-i18n="n_timer">Timer</span>
+                </button>
+                <button onclick="switchTab('stopwatch')" data-tab="stopwatch" class="nav-btn" aria-label="Stopwatch">
+                    <svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/></svg>
+                    <span class="lbl" data-i18n="n_sw">Stopwatch</span>
+                </button>
+            </nav>
+            <button id="nowbar" data-kind="timer" onclick="goNow()" aria-label="Running timer or stopwatch">
+                <i class="nd"></i>
+                <svg data-k="timer" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 00-.59-1.41L12 12l-4.41 4.42A2 2 0 007 17.83V22M7 2v4.17a2 2 0 00.59 1.41L12 12l4.41-4.41A2 2 0 0017 6.17V2"/></svg>
+                <svg data-k="sw" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M10 2h4M12 14l3-3"/><circle cx="12" cy="14" r="8"/></svg>
+                <span id="now-time" class="nm"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= ALARM EDITOR (bottom sheet with number keypad) ================= -->
+    <div id="alarm-sheet" class="modal sheet" onclick="if (event.target === this) closeSheet('alarm-sheet')">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 id="ae-title" data-i18n="set_alarm">Set new alarm</h3>
+                <button class="icon-btn" onclick="closeSheet('alarm-sheet')" aria-label="Close"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <div class="ae-time">
+                <div class="ae-digits"><span id="ae-hh">07</span><span class="ae-colon">:</span><span id="ae-mm">00</span></div>
+                <div id="ae-period" class="ae-period"><button class="apb" data-p="a" onclick="edPeriod('a')">AM</button><button class="apb" data-p="b" onclick="edPeriod('b')">PM</button></div>
+            </div>
+            <div id="ae-err" class="err"></div>
+            <div class="kp">
+                <button class="key" onclick="edKey(1)">1</button><button class="key" onclick="edKey(2)">2</button><button class="key" onclick="edKey(3)">3</button>
+                <button class="key" onclick="edKey(4)">4</button><button class="key" onclick="edKey(5)">5</button><button class="key" onclick="edKey(6)">6</button>
+                <button class="key" onclick="edKey(7)">7</button><button class="key" onclick="edKey(8)">8</button><button class="key" onclick="edKey(9)">9</button>
+                <button class="key fn" onclick="edClear()">C</button><button class="key" onclick="edKey(0)">0</button>
+                <button class="key fn" onclick="edBack()" aria-label="Backspace"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 5H9l-6 7 6 7h12a1 1 0 001-1V6a1 1 0 00-1-1zM17 9l-6 6M11 9l6 6"/></svg></button>
+            </div>
+            <div>
+                <label class="field-label" data-i18n="repeat">Repeat</label>
+                <div class="rep-presets">
+                    <button class="rp" onclick="edPreset('once')" data-i18n="once">Once</button>
+                    <button class="rp" onclick="edPreset('all')" data-i18n="everyday">Every day</button>
+                    <button class="rp" onclick="edPreset('week')" data-i18n="weekdays">Weekdays</button>
+                    <button class="rp" onclick="edPreset('end')" data-i18n="weekends">Weekends</button>
+                </div>
+                <div id="ae-days" class="days"></div>
+            </div>
+            <div>
+                <label class="field-label" for="ae-label" data-i18n="label">Label</label>
+                <input id="ae-label" class="field" type="text" maxlength="24" data-i18n-ph="ph_label" placeholder="Morning Workout">
+            </div>
+            <div class="modal-actions">
+                <button id="ae-del" class="btn ghost danger hidden" onclick="deleteEditing()" data-i18n="delete">Delete</button>
+                <button class="btn ghost" onclick="closeSheet('alarm-sheet')" data-i18n="cancel">Cancel</button>
+                <button class="btn" onclick="saveEditing()" data-i18n="save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= TIMER EDITOR ================= -->
+    <div id="timer-sheet" class="modal sheet" onclick="if (event.target === this) closeSheet('timer-sheet')">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 data-i18n="edit_timer">Edit timer</h3>
+                <button class="icon-btn" onclick="closeSheet('timer-sheet')" aria-label="Close"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <div>
+                <label class="field-label" for="te-name" data-i18n="name">Name</label>
+                <input id="te-name" class="field" type="text" maxlength="20" oninput="teName(this.value)">
+            </div>
+            <div class="te-row"><span data-i18n="rounds">Rounds</span>
+                <div class="stepper"><button onclick="teRounds(-1)">-</button><span id="te-rounds" class="nm te-val"></span><button onclick="teRounds(1)">+</button></div></div>
+            <div class="te-row"><span data-i18n="rest">Rest</span>
+                <div class="stepper"><button onclick="teRest(-5)">-</button><span id="te-rest" class="nm te-val"></span><button onclick="teRest(5)">+</button></div></div>
+            <p class="hint" data-i18n="interval_hint">Rounds above 1 make an interval timer (work, rest, repeat).</p>
+            <div class="modal-actions">
+                <button id="te-del" class="btn ghost danger" onclick="deleteTimer()" data-i18n="delete_timer">Delete timer</button>
+                <button class="btn" onclick="closeSheet('timer-sheet')" data-i18n="ok">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= SETTINGS ================= -->
+    <div id="settings-sheet" class="modal sheet" onclick="if (event.target === this) closeSheet('settings-sheet')">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 data-i18n="settings">Settings</h3>
+                <button class="icon-btn" onclick="closeSheet('settings-sheet')" aria-label="Close"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+
+            <div class="set-sec" data-i18n="appearance">Appearance</div>
+            <div class="set-block"><div class="set-label" data-i18n="accent">Accent colour</div>
+                <div class="accents" id="accents">
+                    <button data-accent="classic" style="background:linear-gradient(135deg,#3d4766,#FDA481)" aria-label="Classic"></button>
+                    <button data-accent="crimson" style="background:linear-gradient(135deg,#e0334a,#7e1020)" aria-label="Crimson"></button>
+                    <button data-accent="emerald" style="background:linear-gradient(135deg,#2fd08a,#0f6e4a)" aria-label="Emerald"></button>
+                    <button data-accent="violet" style="background:linear-gradient(135deg,#9a80ff,#4b36b8)" aria-label="Violet"></button>
+                    <button data-accent="ocean" style="background:linear-gradient(135deg,#4aa3ff,#1457b8)" aria-label="Ocean"></button>
+                </div>
+            </div>
+
+            <div class="set-sec" data-i18n="lang_time">Language &amp; time</div>
+            <div class="set-block"><div class="set-label" data-i18n="language">Language</div>
+                <div class="seg" data-set="lang" style="--n:2"><span class="seg-ind"></span><button data-v="en">English</button><button data-v="am">አማርኛ</button></div></div>
+            <div class="set-block"><div class="set-label" data-i18n="calendar">Calendar</div>
+                <div class="seg" data-set="cal" style="--n:2"><span class="seg-ind"></span><button data-v="greg" data-i18n="greg">Gregorian</button><button data-v="eth" data-i18n="eth">Ethiopian</button></div></div>
+            <div class="set-block"><div class="set-label" data-i18n="time_format">Time format</div>
+                <div class="seg" data-set="timeFmt" style="--n:3"><span class="seg-ind"></span><button data-v="h24" data-i18n="h24">24-hour</button><button data-v="h12" data-i18n="h12">12-hour</button><button data-v="eth" data-i18n="ethtime">Ethiopian</button></div></div>
+
+            <div class="set-sec" data-i18n="alarms_s">Alarms</div>
+            <div class="set-block"><div class="set-label" data-i18n="snooze_len">Snooze length</div>
+                <div class="seg" data-set="snoozeMin" data-num="1" style="--n:4"><span class="seg-ind"></span><button data-v="5">5</button><button data-v="10">10</button><button data-v="15">15</button><button data-v="20">20</button></div></div>
+            <div class="set-row"><span data-i18n="gradual">Gradually louder</span><button class="switch" data-set="gradual" onclick="toggleSetting('gradual')"><i></i></button></div>
+            <div class="set-row"><span data-i18n="vibrate">Vibrate</span><button class="switch" data-set="vibrate" onclick="toggleSetting('vibrate')"><i></i></button></div>
+            <div class="set-block"><div class="set-label" data-i18n="challenge">Wake-up challenge</div>
+                <div class="seg" data-set="challenge" style="--n:2"><span class="seg-ind"></span><button data-v="off" data-i18n="off">Off</button><button data-v="math" data-i18n="math">Maths</button></div>
+                <p class="hint" data-i18n="challenge_hint">Solve a maths question to switch the alarm off.</p></div>
+            <div class="set-row"><span data-i18n="inapp_sound">Sounds inside the app</span><button class="switch" data-set="sound" onclick="toggleSetting('sound')"><i></i></button></div>
+            <button id="rel-open-row" class="btn ghost hidden" onclick="closeSheet('settings-sheet'); setTimeout(openReliability, 380)" data-i18n="reliability_btn">Alarm reliability</button>
+        </div>
+    </div>
+
+    <!-- ================= ALARM RELIABILITY (Android app only) ================= -->
+    <div id="rel-modal" class="modal" onclick="if (event.target === this) closeSheet('rel-modal')">
+        <div class="modal-card">
+            <div class="modal-head">
+                <h3 data-i18n="reliability_btn">Alarm reliability</h3>
+                <button class="icon-btn" onclick="closeSheet('rel-modal')" aria-label="Close"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            </div>
+            <p class="hint" style="font-size:.78rem;line-height:1.5" data-i18n="rel_intro">Alarms are set with the phone's own alarm clock, so they ring when the app is closed or the phone is locked. Some phones also need these switches:</p>
+            <div>
+                <div id="rel-notif" class="rel-row"><i class="st"></i><div><b data-i18n="rel_notif">Notifications</b><small data-i18n="rel_notif_s">Needed to show the alarm screen</small></div><button class="btn sm ghost" onclick="relFix('notifications')" data-i18n="fix">Fix</button></div>
+                <div id="rel-batt" class="rel-row"><i class="st"></i><div><b data-i18n="rel_batt">Battery: no restrictions</b><small data-i18n="rel_batt_s">Stops the phone from stopping alarms</small></div><button class="btn sm ghost" onclick="relFix('battery')" data-i18n="fix">Fix</button></div>
+                <div class="rel-row info"><i class="st"></i><div><b data-i18n="rel_auto">Autostart / background (Xiaomi, Oppo, Vivo, Huawei)</b><small data-i18n="rel_auto_s">Turn ON for Flip Clock if your phone has this page</small></div><button class="btn sm ghost" onclick="relFix('autostart')" data-i18n="open">Open</button></div>
+            </div>
+            <button class="btn" onclick="testAlarm()" data-i18n="rel_test">Send a test alarm in 10 seconds</button>
+            <p class="hint" style="text-align:center" data-i18n="rel_test_s">Tap it, then lock your phone and wait.</p>
+        </div>
+    </div>
+
+    <!-- ================= WAKE-UP CHALLENGE ================= -->
+    <div id="challenge-modal" class="modal" onclick="if (event.target === this) closeSheet('challenge-modal')">
+        <div class="modal-card" style="text-align:center">
+            <div class="modal-head"><h3 data-i18n="solve">Solve to dismiss</h3>
+                <button class="icon-btn" onclick="closeSheet('challenge-modal')" aria-label="Close"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
+            <div id="ch-q" class="ch-q"></div>
+            <div class="ch-opts"><button class="btn ghost" onclick="chAnswer(0)"></button><button class="btn ghost" onclick="chAnswer(1)"></button><button class="btn ghost" onclick="chAnswer(2)"></button></div>
+        </div>
+    </div>
+
+    <!-- ================= BEDSIDE MODE ================= -->
+    <div id="bedside" onclick="bedTap(event)" aria-hidden="true">
+        <div id="bed-dim"></div>
+        <div id="bed-shift" class="bed-shift">
+            <div class="flip-board bed">
+                <div class="fcard" data-flip-id="bed-h"></div>
+                <div class="fcard" data-flip-id="bed-m"></div>
+                <div class="fcard fsec" data-flip-id="bed-s"></div>
+            </div>
+            <div id="bed-date" class="bed-date"></div>
+            <div id="bed-next" class="bed-next"></div>
+        </div>
+        <div id="bed-ctl" class="bed-ctl">
+            <button class="chip-btn icon" onclick="event.stopPropagation(); closeSheet('bedside')" aria-label="Close"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg></button>
+            <button class="chip-btn" onclick="event.stopPropagation(); bedDim()"><svg fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg><span data-i18n="dim">Dim</span></button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
